@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Body Builder Game</title>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background: linear-gradient(#e3f2fd, #ffffff);
+}
+
+#controls {
+  margin: 10px;
+}
+
+button {
+  padding: 6px 12px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+/* Progress bar */
+#progress {
+  width: 350px;
+  height: 12px;
+  background: #ddd;
+  margin: 10px auto;
+  border-radius: 10px;
+}
+
+#bar {
+  height: 100%;
+  width: 0%;
+  background: #4caf50;
+}
+
+/* Game */
+#game {
+  width: 350px;
+  height: 750px;
+  margin: auto;
+  position: relative;
+  border: 3px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 🔹 Faded reference image */
+#reference {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Zones */
+.zone {
+  position: absolute;
+  width: 100%;
+  height: 20%;
+  border: 1px dashed #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.correct {
+  border: none;
+  box-shadow: inset 0 0 20px rgba(0,200,0,0.4);
+}
+
+.active {
+  border: 2px solid #2196f3;
+}
+
+/* Pieces */
+#pieces img {
+  width: 90px;
+  margin: 6px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🧩 Build the Body</h2>
+
+<div id="controls">
+  Difficulty:
+  <button onclick="setMode('easy')">Easy</button>
+  <button onclick="setMode('medium')">Medium</button>
+  <button onclick="setMode('hard')">Hard</button>
+  <button onclick="resetGame()">🔄 Reset</button>
+</div>
+
+<div id="progress"><div id="bar"></div></div>
+
+<div id="game">
+  <!-- 🔹 Faded full image -->
+  <img id="reference" src="images/full.png">
+</div>
+
+<div id="pieces"></div>
+
+<script>
+const labels = ["Head", "Face", "Torso", "Waist", "Legs"];
+let mode = "easy";
+let currentStep = 0;
+let dragged = null;
+let selectedPiece = null;
+const total = 5;
+
+const game = document.getElementById("game");
+const piecesContainer = document.getElementById("pieces");
+const bar = document.getElementById("bar");
+
+/* 🎙️ Cartoon Voice */
+let voice = null;
+
+function loadVoices() {
+  const voices = speechSynthesis.getVoices();
+  voice = voices.find(v => v.name.toLowerCase().includes("female")) || voices[0];
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+
+function speak(text) {
+  if (mode === "hard") return;
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.voice = voice;
+  msg.rate = 0.9;
+  msg.pitch = 1.5;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(msg);
+}
+
+/* Progress */
+function updateProgress() {
+  bar.style.width = ((currentStep / total) * 100) + "%";
+}
+
+/* Difficulty */
+function setMode(m) {
+  mode = m;
+  resetGame();
+  speak("Mode " + m);
+}
+
+/* Reset */
+function resetGame() {
+  game.innerHTML = '<img id="reference" src="images/full.png">';
+  piecesContainer.innerHTML = "";
+  currentStep = 0;
+  updateProgress();
+  init();
+}
+
+/* Init */
+function init() {
+
+  for (let i = 0; i < total; i++) {
+    const zone = document.createElement("div");
+    zone.className = "zone";
+    zone.style.top = (i * 20) + "%";
+    zone.dataset.id = i;
+
+    if (mode !== "hard") zone.innerText = labels[i];
+    if (mode === "easy" && i === 0) zone.classList.add("active");
+
+    zone.ondragover = e => e.preventDefault();
+    zone.ondrop = () => handleDrop(zone);
+
+    zone.onclick = () => {
+      if (selectedPiece) handleDrop(zone);
+    };
+
+    game.appendChild(zone);
+  }
+
+  shuffle([0,1,2,3,4]).forEach(i => {
+    const img = document.createElement("img");
+    img.src = `images/part_${i+1}.png`;
+    img.dataset.id = i;
+    img.draggable = true;
+
+    img.ondragstart = () => dragged = img;
+
+    img.onclick = () => {
+      selectedPiece = img;
+      if (mode !== "hard") speak(labels[i]);
+    };
+
+    piecesContainer.appendChild(img);
+  });
+
+  if (mode === "easy") speak("Start with Head");
+}
+
+/* Drop logic */
+function handleDrop(zone) {
+
+  let piece = dragged || selectedPiece;
+  if (!piece) return;
+
+  const id = parseInt(piece.dataset.id);
+  const zoneId = parseInt(zone.dataset.id);
+
+  let correct = (mode === "easy")
+    ? (id === currentStep && zoneId === currentStep)
+    : (id === zoneId);
+
+  if (correct) {
+
+    zone.innerHTML = "";
+    zone.appendChild(piece);
+    piece.style.width = "100%";
+    piece.style.height = "100%";
+    piece.draggable = false;
+
+    zone.classList.add("correct");
+
+    if (mode !== "hard") speak(labels[id]);
+
+    currentStep++;
+    updateProgress();
+
+    if (mode === "easy" && currentStep < total) {
+      document.querySelectorAll(".zone")[currentStep]
+        .classList.add("active");
+    }
+
+    if (currentStep === total) {
+      setTimeout(() => speak("Excellent! Completed!"), 300);
+    }
+
+  } else {
+    zone.style.background = "rgba(255,0,0,0.2)";
+    if (mode !== "hard") speak("Try again");
+    setTimeout(() => zone.style.background = "", 400);
+  }
+
+  selectedPiece = null;
+}
+
+/* Shuffle */
+function shuffle(arr) {
+  return arr.sort(() => Math.random() - 0.5);
+}
+
+/* Start */
+init();
+</script>
+
+</body>
+</html>
