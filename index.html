@@ -26,7 +26,7 @@ body {
   overflow-y: auto;
 }
 
-/* CENTER */
+/* CENTER PANEL */
 #centerPanel {
   width: 50%;
   display: flex;
@@ -35,47 +35,32 @@ body {
   justify-content: center;
 }
 
-/* RIGHT */
+/* RIGHT PANEL (Centered content) */
 #rightPanel {
   width: 25%;
   padding: 10px;
   border-left: 2px solid #ddd;
+
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  justify-content: center;   /* vertical center */
+  align-items: center;       /* horizontal center */
+
   gap: 12px;
   overflow-y: auto;
 }
 
+/* Instructions */
+#instructions {
+  font-size: 14px;
+}
+
 /* Buttons */
 button {
-  padding: 12px 20px;
-  margin: 6px 4px;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 10px;
-  border: 2px solid #ccc;
+  padding: 6px 12px;
+  margin: 5px 3px;
   cursor: pointer;
-  background: #fff;
-  color: #333;
-  transition: 0.2s;
-}
-
-button:hover {
-  background: #f0f0f0;
-}
-
-.active-btn {
-  background: #4caf50 !important;
-  color: white !important;
-  border-color: #4caf50;
-}
-
-.secondary-btn {
-  background: #607d8b;
-  color: white;
-  border: none;
+  border-radius: 6px;
 }
 
 /* Game */
@@ -89,19 +74,25 @@ button:hover {
   background: #fff;
 }
 
+/* Reference (hidden by default) */
 #reference {
   position: absolute;
   width: 100%;
   height: 100%;
   opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
 }
 
-/* Zones */
+/* Drop zones */
 .zone {
   position: absolute;
   width: 100%;
   height: 20%;
   border: 1px dashed #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .correct {
@@ -109,10 +100,21 @@ button:hover {
   box-shadow: inset 0 0 20px rgba(0,200,0,0.4);
 }
 
-/* Pieces */
+.active {
+  border: 2px solid #2196f3;
+}
+
+/* Bigger draggable images */
 #rightPanel img {
   width: 160px;
+  max-width: 90%;
+  cursor: pointer;
   border-radius: 10px;
+  transition: transform 0.2s;
+}
+
+#rightPanel img:hover {
+  transform: scale(1.08);
 }
 
 /* Progress */
@@ -120,6 +122,7 @@ button:hover {
   width: 350px;
   height: 10px;
   background: #ddd;
+  margin-bottom: 10px;
 }
 
 #bar {
@@ -128,7 +131,7 @@ button:hover {
   background: #4caf50;
 }
 
-/* Overlay */
+/* Completion overlay */
 #completeScreen {
   display:none;
   position:fixed;
@@ -141,22 +144,10 @@ button:hover {
   justify-content:center;
   flex-direction:column;
 }
-
-/* Confetti */
-#confettiCanvas {
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  pointer-events:none;
-}
 </style>
 </head>
 
 <body>
-
-<canvas id="confettiCanvas"></canvas>
 
 <div id="container">
 
@@ -169,14 +160,15 @@ button:hover {
       <b>How to Play:</b>
       <ul>
         <li>Select a difficulty mode.</li>
-        <li>Drag pieces to correct position.</li>
+        <li>Drag or tap pieces to place them.</li>
         <li>Complete the body from top to bottom.</li>
       </ul>
 
       <b>Modes:</b>
       <ul>
-        <li><b>Easy:</b> Follow step-by-step order.</li>
+        <li><b>Easy:</b> Step-by-step guided learning.</li>
         <li><b>Medium:</b> Place any correct part.</li>
+        <li><b>Hard:</b> No hints or voice.</li>
       </ul>
     </div>
 
@@ -184,16 +176,16 @@ button:hover {
 
     <button onclick="setMode('easy')" id="btn-easy">Easy</button>
     <button onclick="setMode('medium')" id="btn-medium">Medium</button>
-
-    <br><br>
-
-    <button class="secondary-btn" onclick="resetGame()">Reset</button>
-    <button class="secondary-btn" onclick="toggleHint()">Hint</button>
+    <button onclick="setMode('hard')" id="btn-hard">Hard</button>
+    <br>
+    <button onclick="resetGame()">🔄 Reset</button>
+    <button onclick="toggleHint()">👁 Hint</button>
 
   </div>
 
   <!-- CENTER -->
   <div id="centerPanel">
+
     <h2>Build the Body</h2>
 
     <div id="progress"><div id="bar"></div></div>
@@ -201,6 +193,7 @@ button:hover {
     <div id="game">
       <img id="reference" src="images/full.png">
     </div>
+
   </div>
 
   <!-- RIGHT -->
@@ -209,39 +202,37 @@ button:hover {
 </div>
 
 <div id="completeScreen">
-  🎉 Congratulations! 🎉<br><br>
+  🎉 Great Job!<br><br>
   <button onclick="resetGame()">Play Again</button>
 </div>
-
-<audio id="successSound" preload="auto">
-  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b6b5c.mp3">
-</audio>
 
 <script>
 const labels=["Head","Face","Torso","Waist","Legs"];
 let mode="easy";
 let currentStep=0;
 let dragged=null;
+let selectedPiece=null;
 const total=5;
-
-let confettiInterval=null;
 
 const game=document.getElementById("game");
 const pieces=document.getElementById("rightPanel");
 const bar=document.getElementById("bar");
 
-/* Highlight */
-function highlightMode(){
-  document.getElementById("btn-easy").classList.remove("active-btn");
-  document.getElementById("btn-medium").classList.remove("active-btn");
-  document.getElementById("btn-"+mode).classList.add("active-btn");
-}
+/* Voice */
+let voice=null;
+speechSynthesis.onvoiceschanged=()=>{
+  const voices=speechSynthesis.getVoices();
+  voice=voices.find(v=>v.name.toLowerCase().includes("female"))||voices[0];
+};
 
-/* Mode */
-function setMode(m){
-  mode=m;
-  resetGame();
-  highlightMode();
+function speak(text){
+  if(mode==="hard") return;
+  speechSynthesis.cancel();
+  const msg=new SpeechSynthesisUtterance(text);
+  msg.voice=voice;
+  msg.pitch=1.5;
+  msg.rate=0.9;
+  speechSynthesis.speak(msg);
 }
 
 /* Progress */
@@ -249,42 +240,54 @@ function updateProgress(){
   bar.style.width=((currentStep/total)*100)+"%";
 }
 
+/* Mode */
+function highlightMode(){
+  ["easy","medium","hard"].forEach(m=>{
+    document.getElementById("btn-"+m).style.background="";
+  });
+  document.getElementById("btn-"+mode).style.background="#4caf50";
+}
+
+function setMode(m){
+  mode=m;
+  resetGame();
+  highlightMode();
+}
+
 /* Reset */
 function resetGame(){
-
-  if(confettiInterval){
-    clearInterval(confettiInterval);
-    confettiInterval=null;
-  }
-
-  const canvas=document.getElementById("confettiCanvas");
-  canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
-
   game.innerHTML='<img id="reference" src="images/full.png" style="opacity:0">';
   pieces.innerHTML="";
   document.getElementById("completeScreen").style.display="none";
-
   currentStep=0;
   updateProgress();
   init();
 }
 
-/* Hint */
+/* Hint toggle */
 function toggleHint(){
   const ref=document.getElementById("reference");
-  ref.style.opacity = ref.style.opacity==0 ? 0.2 : 0;
+  ref.style.opacity = ref.style.opacity == "0" ? "0.2" : "0";
 }
 
 /* Init */
 function init(){
+
   for(let i=0;i<total;i++){
     const zone=document.createElement("div");
     zone.className="zone";
     zone.style.top=(i*20)+"%";
     zone.dataset.id=i;
 
+    if(mode!=="hard") zone.innerText=labels[i];
+    if(mode==="easy" && i===0) zone.classList.add("active");
+
     zone.ondragover=e=>e.preventDefault();
     zone.ondrop=()=>handleDrop(zone);
+
+    zone.onclick=()=>{
+      if(selectedPiece) handleDrop(zone);
+    };
 
     game.appendChild(zone);
   }
@@ -297,15 +300,25 @@ function init(){
 
     img.ondragstart=()=>dragged=img;
 
+    img.onclick=()=>{
+      selectedPiece=img;
+      document.querySelectorAll("#rightPanel img").forEach(el=>el.style.outline="");
+      img.style.outline="3px solid #2196f3";
+      speak(labels[i]);
+    };
+
     pieces.appendChild(img);
   });
+
+  if(mode==="easy") speak("Start with Head");
 }
 
 /* Drop */
 function handleDrop(zone){
-  if(!dragged) return;
+  let piece=dragged||selectedPiece;
+  if(!piece) return;
 
-  const id=parseInt(dragged.dataset.id);
+  const id=parseInt(piece.dataset.id);
   const zoneId=parseInt(zone.dataset.id);
 
   let correct=(mode==="easy")
@@ -313,69 +326,37 @@ function handleDrop(zone){
     :(id===zoneId);
 
   if(correct){
-    zone.appendChild(dragged);
-    dragged.style.width="100%";
-    dragged.style.height="100%";
-    dragged.draggable=false;
+    zone.innerHTML="";
+    zone.appendChild(piece);
+    piece.style.width="100%";
+    piece.style.height="100%";
+    piece.draggable=false;
+
+    zone.classList.add("correct");
+    speak(labels[id]);
 
     currentStep++;
     updateProgress();
 
-    if(currentStep===total){
-      completeGame();
+    if(mode==="easy" && currentStep<total){
+      document.querySelectorAll(".zone")[currentStep].classList.add("active");
     }
+
+    if(currentStep===total){
+      setTimeout(()=>{
+        speak("Excellent!");
+        document.getElementById("completeScreen").style.display="flex";
+      },300);
+    }
+
+  } else {
+    zone.style.background="rgba(255,0,0,0.2)";
+    speak("Try again");
+    setTimeout(()=>zone.style.background="",400);
   }
 
   dragged=null;
-}
-
-/* Complete */
-function completeGame(){
-  document.getElementById("successSound").play();
-  startConfetti();
-
-  setTimeout(()=>{
-    document.getElementById("completeScreen").style.display="flex";
-  },500);
-}
-
-/* Confetti */
-function startConfetti(){
-  const canvas=document.getElementById("confettiCanvas");
-  const ctx=canvas.getContext("2d");
-
-  canvas.width=window.innerWidth;
-  canvas.height=window.innerHeight;
-
-  let particles=Array.from({length:120},()=>({
-    x:Math.random()*canvas.width,
-    y:Math.random()*canvas.height,
-    r:Math.random()*5+2
-  }));
-
-  if(confettiInterval){
-    clearInterval(confettiInterval);
-  }
-
-  confettiInterval=setInterval(()=>{
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    particles.forEach(p=>{
-      p.y+=3;
-      if(p.y>canvas.height) p.y=0;
-
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle=`hsl(${Math.random()*360},100%,50%)`;
-      ctx.fill();
-    });
-
-  },20);
-
-  setTimeout(()=>{
-    clearInterval(confettiInterval);
-    confettiInterval=null;
-  },3000);
+  selectedPiece=null;
 }
 
 /* Shuffle */
