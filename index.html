@@ -9,8 +9,22 @@ body {
   font-family: Arial;
   text-align: center;
   background: linear-gradient(#e3f2fd, #ffffff);
+  margin: 0;
 }
 
+/* Instructions */
+#instructions {
+  max-width: 420px;
+  margin: 10px auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: left;
+  font-size: 14px;
+}
+
+/* Controls */
 #controls {
   margin: 10px;
 }
@@ -19,9 +33,11 @@ button {
   padding: 6px 12px;
   margin: 5px;
   cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid #ccc;
 }
 
-/* Progress bar */
+/* Progress */
 #progress {
   width: 350px;
   height: 12px;
@@ -47,15 +63,14 @@ button {
   overflow: hidden;
 }
 
-/* 🔹 Faded reference image */
+/* Reference image */
 #reference {
   position: absolute;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   opacity: 0.2;
+  object-fit: cover;
   pointer-events: none;
-  z-index: 0;
 }
 
 /* Zones */
@@ -67,7 +82,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
+  font-size: 13px;
 }
 
 .correct {
@@ -84,6 +99,22 @@ button {
   width: 90px;
   margin: 6px;
   cursor: pointer;
+  border-radius: 8px;
+}
+
+/* Completion overlay */
+#completeScreen {
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.7);
+  color:#fff;
+  font-size:24px;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:999;
 }
 </style>
 </head>
@@ -92,25 +123,45 @@ button {
 
 <h2>🧩 Build the Body</h2>
 
+<div id="instructions">
+  <b>How to Play:</b>
+  <ul>
+    <li>Select a difficulty mode.</li>
+    <li>Drag or tap pieces to place them correctly.</li>
+    <li>Complete the body from top to bottom.</li>
+  </ul>
+
+  <b>Modes:</b>
+  <ul>
+    <li><b>Easy:</b> Step-by-step guided learning.</li>
+    <li><b>Medium:</b> Place any correct part.</li>
+    <li><b>Hard:</b> No hints or voice.</li>
+  </ul>
+</div>
+
 <div id="controls">
-  Difficulty:
-  <button onclick="setMode('easy')">Easy</button>
-  <button onclick="setMode('medium')">Medium</button>
-  <button onclick="setMode('hard')">Hard</button>
+  <button onclick="setMode('easy')" id="btn-easy">Easy</button>
+  <button onclick="setMode('medium')" id="btn-medium">Medium</button>
+  <button onclick="setMode('hard')" id="btn-hard">Hard</button>
   <button onclick="resetGame()">🔄 Reset</button>
+  <button onclick="toggleHint()">👁 Hint</button>
 </div>
 
 <div id="progress"><div id="bar"></div></div>
 
 <div id="game">
-  <!-- 🔹 Faded full image -->
   <img id="reference" src="images/full.png">
 </div>
 
 <div id="pieces"></div>
 
+<div id="completeScreen">
+  🎉 Great Job!<br><br>
+  <button onclick="resetGame()">Play Again</button>
+</div>
+
 <script>
-const labels = ["Head", "Face", "Torso", "Waist", "Legs"];
+const labels = ["Head","Face","Torso","Waist","Legs"];
 let mode = "easy";
 let currentStep = 0;
 let dragged = null;
@@ -121,9 +172,8 @@ const game = document.getElementById("game");
 const piecesContainer = document.getElementById("pieces");
 const bar = document.getElementById("bar");
 
-/* 🎙️ Cartoon Voice */
+/* Voice */
 let voice = null;
-
 function loadVoices() {
   const voices = speechSynthesis.getVoices();
   voice = voices.find(v => v.name.toLowerCase().includes("female")) || voices[0];
@@ -132,129 +182,153 @@ speechSynthesis.onvoiceschanged = loadVoices;
 
 function speak(text) {
   if (mode === "hard") return;
+  speechSynthesis.cancel();
   const msg = new SpeechSynthesisUtterance(text);
   msg.voice = voice;
   msg.rate = 0.9;
   msg.pitch = 1.5;
-  speechSynthesis.cancel();
   speechSynthesis.speak(msg);
 }
 
 /* Progress */
 function updateProgress() {
-  bar.style.width = ((currentStep / total) * 100) + "%";
+  bar.style.width = ((currentStep/total)*100)+"%";
 }
 
-/* Difficulty */
-function setMode(m) {
-  mode = m;
+/* Mode highlight */
+function highlightMode() {
+  ["easy","medium","hard"].forEach(m=>{
+    document.getElementById("btn-"+m).style.background="";
+  });
+  document.getElementById("btn-"+mode).style.background="#4caf50";
+}
+
+/* Mode set */
+function setMode(m){
+  mode=m;
   resetGame();
-  speak("Mode " + m);
+  highlightMode();
+
+  if(m==="easy") speak("Easy mode. Follow step by step.");
+  if(m==="medium") speak("Medium mode.");
+  if(m==="hard") speak("Hard mode.");
 }
 
 /* Reset */
-function resetGame() {
-  game.innerHTML = '<img id="reference" src="images/full.png">';
-  piecesContainer.innerHTML = "";
-  currentStep = 0;
+function resetGame(){
+  game.innerHTML='<img id="reference" src="images/full.png">';
+  piecesContainer.innerHTML="";
+  document.getElementById("completeScreen").style.display="none";
+  currentStep=0;
   updateProgress();
   init();
 }
 
+/* Hint toggle */
+function toggleHint(){
+  const ref=document.getElementById("reference");
+  ref.style.opacity = ref.style.opacity==0 ? 0.2 : 0;
+}
+
 /* Init */
-function init() {
+function init(){
 
-  for (let i = 0; i < total; i++) {
-    const zone = document.createElement("div");
-    zone.className = "zone";
-    zone.style.top = (i * 20) + "%";
-    zone.dataset.id = i;
+  for(let i=0;i<total;i++){
+    const zone=document.createElement("div");
+    zone.className="zone";
+    zone.style.top=(i*20)+"%";
+    zone.dataset.id=i;
 
-    if (mode !== "hard") zone.innerText = labels[i];
-    if (mode === "easy" && i === 0) zone.classList.add("active");
+    if(mode!=="hard") zone.innerText=labels[i];
+    if(mode==="easy" && i===0) zone.classList.add("active");
 
-    zone.ondragover = e => e.preventDefault();
-    zone.ondrop = () => handleDrop(zone);
+    zone.ondragover=e=>e.preventDefault();
+    zone.ondrop=()=>handleDrop(zone);
 
-    zone.onclick = () => {
-      if (selectedPiece) handleDrop(zone);
+    zone.onclick=()=>{
+      if(selectedPiece) handleDrop(zone);
     };
 
     game.appendChild(zone);
   }
 
-  shuffle([0,1,2,3,4]).forEach(i => {
-    const img = document.createElement("img");
-    img.src = `images/part_${i+1}.png`;
-    img.dataset.id = i;
-    img.draggable = true;
+  shuffle([0,1,2,3,4]).forEach(i=>{
+    const img=document.createElement("img");
+    img.src=`images/part_${i+1}.png`;
+    img.dataset.id=i;
+    img.draggable=true;
 
-    img.ondragstart = () => dragged = img;
+    img.ondragstart=()=>dragged=img;
 
-    img.onclick = () => {
-      selectedPiece = img;
-      if (mode !== "hard") speak(labels[i]);
+    img.onclick=()=>{
+      selectedPiece=img;
+      document.querySelectorAll("#pieces img").forEach(el=>el.style.outline="");
+      img.style.outline="3px solid #2196f3";
+      speak(labels[i]);
     };
 
     piecesContainer.appendChild(img);
   });
 
-  if (mode === "easy") speak("Start with Head");
+  if(mode==="easy") speak("Start with Head");
 }
 
 /* Drop logic */
-function handleDrop(zone) {
+function handleDrop(zone){
+  let piece=dragged || selectedPiece;
+  if(!piece) return;
 
-  let piece = dragged || selectedPiece;
-  if (!piece) return;
+  const id=parseInt(piece.dataset.id);
+  const zoneId=parseInt(zone.dataset.id);
 
-  const id = parseInt(piece.dataset.id);
-  const zoneId = parseInt(zone.dataset.id);
+  let correct = (mode==="easy")
+    ? (id===currentStep && zoneId===currentStep)
+    : (id===zoneId);
 
-  let correct = (mode === "easy")
-    ? (id === currentStep && zoneId === currentStep)
-    : (id === zoneId);
-
-  if (correct) {
-
-    zone.innerHTML = "";
+  if(correct){
+    zone.innerHTML="";
     zone.appendChild(piece);
-    piece.style.width = "100%";
-    piece.style.height = "100%";
-    piece.draggable = false;
+    piece.style.width="100%";
+    piece.style.height="100%";
+    piece.style.transition="0.3s";
+    piece.draggable=false;
 
     zone.classList.add("correct");
 
-    if (mode !== "hard") speak(labels[id]);
+    if(mode!=="hard") speak(labels[id]);
 
     currentStep++;
     updateProgress();
 
-    if (mode === "easy" && currentStep < total) {
-      document.querySelectorAll(".zone")[currentStep]
-        .classList.add("active");
+    if(mode==="easy" && currentStep<total){
+      document.querySelectorAll(".zone")[currentStep].classList.add("active");
     }
 
-    if (currentStep === total) {
-      setTimeout(() => speak("Excellent! Completed!"), 300);
+    if(currentStep===total){
+      setTimeout(()=>{
+        speak("Excellent!");
+        document.getElementById("completeScreen").style.display="flex";
+      },300);
     }
 
   } else {
-    zone.style.background = "rgba(255,0,0,0.2)";
-    if (mode !== "hard") speak("Try again");
-    setTimeout(() => zone.style.background = "", 400);
+    zone.style.background="rgba(255,0,0,0.2)";
+    if(mode!=="hard") speak("Try again");
+    setTimeout(()=>zone.style.background="",400);
   }
 
-  selectedPiece = null;
+  dragged=null;
+  selectedPiece=null;
 }
 
 /* Shuffle */
-function shuffle(arr) {
-  return arr.sort(() => Math.random() - 0.5);
+function shuffle(arr){
+  return arr.sort(()=>Math.random()-0.5);
 }
 
 /* Start */
 init();
+highlightMode();
 </script>
 
 </body>
