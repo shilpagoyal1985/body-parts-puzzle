@@ -26,7 +26,7 @@ body {
   overflow-y: auto;
 }
 
-/* CENTER PANEL */
+/* CENTER */
 #centerPanel {
   width: 50%;
   display: flex;
@@ -35,32 +35,48 @@ body {
   justify-content: center;
 }
 
-/* RIGHT PANEL (Centered content) */
+/* RIGHT */
 #rightPanel {
   width: 25%;
   padding: 10px;
   border-left: 2px solid #ddd;
-
   display: flex;
   flex-direction: column;
-  justify-content: center;   /* vertical center */
-  align-items: center;       /* horizontal center */
-
+  justify-content: center;
+  align-items: center;
   gap: 12px;
   overflow-y: auto;
 }
 
-/* Instructions */
-#instructions {
-  font-size: 14px;
-}
-
 /* Buttons */
 button {
-  padding: 6px 12px;
-  margin: 5px 3px;
+  padding: 12px 20px;
+  margin: 6px 4px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 10px;
+  border: none;
   cursor: pointer;
-  border-radius: 6px;
+  background: #2196f3;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #1976d2;
+  transform: scale(1.05);
+}
+
+.active-btn {
+  background: #4caf50 !important;
+}
+
+.secondary-btn {
+  background: #607d8b;
+}
+
+.secondary-btn:hover {
+  background: #455a64;
 }
 
 /* Game */
@@ -74,25 +90,19 @@ button {
   background: #fff;
 }
 
-/* Reference (hidden by default) */
 #reference {
   position: absolute;
   width: 100%;
   height: 100%;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
 }
 
-/* Drop zones */
+/* Zones */
 .zone {
   position: absolute;
   width: 100%;
   height: 20%;
   border: 1px dashed #bbb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .correct {
@@ -100,21 +110,11 @@ button {
   box-shadow: inset 0 0 20px rgba(0,200,0,0.4);
 }
 
-.active {
-  border: 2px solid #2196f3;
-}
-
-/* Bigger draggable images */
+/* Pieces */
 #rightPanel img {
   width: 160px;
-  max-width: 90%;
-  cursor: pointer;
   border-radius: 10px;
-  transition: transform 0.2s;
-}
-
-#rightPanel img:hover {
-  transform: scale(1.08);
+  cursor: pointer;
 }
 
 /* Progress */
@@ -144,56 +144,47 @@ button {
   justify-content:center;
   flex-direction:column;
 }
+
+/* Confetti */
+#confettiCanvas {
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
 </style>
 </head>
 
 <body>
 
+<canvas id="confettiCanvas"></canvas>
+
 <div id="container">
 
   <!-- LEFT -->
   <div id="leftPanel">
-
-    <h3>🧩 Instructions</h3>
-
-    <div id="instructions">
-      <b>How to Play:</b>
-      <ul>
-        <li>Select a difficulty mode.</li>
-        <li>Drag or tap pieces to place them.</li>
-        <li>Complete the body from top to bottom.</li>
-      </ul>
-
-      <b>Modes:</b>
-      <ul>
-        <li><b>Easy:</b> Step-by-step guided learning.</li>
-        <li><b>Medium:</b> Place any correct part.</li>
-        <li><b>Hard:</b> No hints or voice.</li>
-      </ul>
-    </div>
-
-    <h4>Controls</h4>
+    <h3>Instructions</h3>
+    <p>Build the body from top to bottom.</p>
 
     <button onclick="setMode('easy')" id="btn-easy">Easy</button>
     <button onclick="setMode('medium')" id="btn-medium">Medium</button>
-    <button onclick="setMode('hard')" id="btn-hard">Hard</button>
-    <br>
-    <button onclick="resetGame()">🔄 Reset</button>
-    <button onclick="toggleHint()">👁 Hint</button>
 
+    <br><br>
+
+    <button class="secondary-btn" onclick="resetGame()">Reset</button>
+    <button class="secondary-btn" onclick="toggleHint()">Hint</button>
   </div>
 
   <!-- CENTER -->
   <div id="centerPanel">
-
     <h2>Build the Body</h2>
-
     <div id="progress"><div id="bar"></div></div>
 
     <div id="game">
       <img id="reference" src="images/full.png">
     </div>
-
   </div>
 
   <!-- RIGHT -->
@@ -202,50 +193,32 @@ button {
 </div>
 
 <div id="completeScreen">
-  🎉 Great Job!<br><br>
+  🎉 Congratulations! 🎉<br><br>
   <button onclick="resetGame()">Play Again</button>
 </div>
+
+<audio id="successSound">
+  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b6b5c.mp3" type="audio/mpeg">
+</audio>
 
 <script>
 const labels=["Head","Face","Torso","Waist","Legs"];
 let mode="easy";
 let currentStep=0;
 let dragged=null;
-let selectedPiece=null;
 const total=5;
+
+let confettiInterval=null;
+let confettiParticles=[];
 
 const game=document.getElementById("game");
 const pieces=document.getElementById("rightPanel");
 const bar=document.getElementById("bar");
 
-/* Voice */
-let voice=null;
-speechSynthesis.onvoiceschanged=()=>{
-  const voices=speechSynthesis.getVoices();
-  voice=voices.find(v=>v.name.toLowerCase().includes("female"))||voices[0];
-};
-
-function speak(text){
-  if(mode==="hard") return;
-  speechSynthesis.cancel();
-  const msg=new SpeechSynthesisUtterance(text);
-  msg.voice=voice;
-  msg.pitch=1.5;
-  msg.rate=0.9;
-  speechSynthesis.speak(msg);
-}
-
-/* Progress */
-function updateProgress(){
-  bar.style.width=((currentStep/total)*100)+"%";
-}
-
-/* Mode */
+/* Mode highlight */
 function highlightMode(){
-  ["easy","medium","hard"].forEach(m=>{
-    document.getElementById("btn-"+m).style.background="";
-  });
-  document.getElementById("btn-"+mode).style.background="#4caf50";
+  document.querySelectorAll("button").forEach(b=>b.classList.remove("active-btn"));
+  document.getElementById("btn-"+mode).classList.add("active-btn");
 }
 
 function setMode(m){
@@ -254,40 +227,50 @@ function setMode(m){
   highlightMode();
 }
 
+/* Progress */
+function updateProgress(){
+  bar.style.width=((currentStep/total)*100)+"%";
+}
+
 /* Reset */
 function resetGame(){
+
+  // stop confetti
+  if(confettiInterval){
+    clearInterval(confettiInterval);
+    confettiInterval=null;
+  }
+
+  // clear canvas
+  const canvas=document.getElementById("confettiCanvas");
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
   game.innerHTML='<img id="reference" src="images/full.png" style="opacity:0">';
   pieces.innerHTML="";
   document.getElementById("completeScreen").style.display="none";
+
   currentStep=0;
   updateProgress();
   init();
 }
 
-/* Hint toggle */
+/* Hint */
 function toggleHint(){
   const ref=document.getElementById("reference");
-  ref.style.opacity = ref.style.opacity == "0" ? "0.2" : "0";
+  ref.style.opacity = ref.style.opacity==0 ? 0.2 : 0;
 }
 
 /* Init */
 function init(){
-
   for(let i=0;i<total;i++){
     const zone=document.createElement("div");
     zone.className="zone";
     zone.style.top=(i*20)+"%";
     zone.dataset.id=i;
 
-    if(mode!=="hard") zone.innerText=labels[i];
-    if(mode==="easy" && i===0) zone.classList.add("active");
-
     zone.ondragover=e=>e.preventDefault();
     zone.ondrop=()=>handleDrop(zone);
-
-    zone.onclick=()=>{
-      if(selectedPiece) handleDrop(zone);
-    };
 
     game.appendChild(zone);
   }
@@ -300,25 +283,15 @@ function init(){
 
     img.ondragstart=()=>dragged=img;
 
-    img.onclick=()=>{
-      selectedPiece=img;
-      document.querySelectorAll("#rightPanel img").forEach(el=>el.style.outline="");
-      img.style.outline="3px solid #2196f3";
-      speak(labels[i]);
-    };
-
     pieces.appendChild(img);
   });
-
-  if(mode==="easy") speak("Start with Head");
 }
 
 /* Drop */
 function handleDrop(zone){
-  let piece=dragged||selectedPiece;
-  if(!piece) return;
+  if(!dragged) return;
 
-  const id=parseInt(piece.dataset.id);
+  const id=parseInt(dragged.dataset.id);
   const zoneId=parseInt(zone.dataset.id);
 
   let correct=(mode==="easy")
@@ -326,37 +299,73 @@ function handleDrop(zone){
     :(id===zoneId);
 
   if(correct){
-    zone.innerHTML="";
-    zone.appendChild(piece);
-    piece.style.width="100%";
-    piece.style.height="100%";
-    piece.draggable=false;
-
-    zone.classList.add("correct");
-    speak(labels[id]);
+    zone.appendChild(dragged);
+    dragged.style.width="100%";
+    dragged.style.height="100%";
+    dragged.draggable=false;
 
     currentStep++;
     updateProgress();
 
-    if(mode==="easy" && currentStep<total){
-      document.querySelectorAll(".zone")[currentStep].classList.add("active");
-    }
-
     if(currentStep===total){
-      setTimeout(()=>{
-        speak("Excellent!");
-        document.getElementById("completeScreen").style.display="flex";
-      },300);
+      completeGame();
     }
-
-  } else {
-    zone.style.background="rgba(255,0,0,0.2)";
-    speak("Try again");
-    setTimeout(()=>zone.style.background="",400);
   }
 
   dragged=null;
-  selectedPiece=null;
+}
+
+/* Complete */
+function completeGame(){
+  document.getElementById("successSound").play();
+  startConfetti();
+
+  setTimeout(()=>{
+    document.getElementById("completeScreen").style.display="flex";
+  },500);
+}
+
+/* Confetti FIXED */
+function startConfetti(){
+
+  const canvas=document.getElementById("confettiCanvas");
+  const ctx=canvas.getContext("2d");
+
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+
+  confettiParticles=Array.from({length:120},()=>({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    r:Math.random()*5+2
+  }));
+
+  if(confettiInterval){
+    clearInterval(confettiInterval);
+  }
+
+  confettiInterval=setInterval(()=>{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    confettiParticles.forEach(p=>{
+      p.y+=3;
+      if(p.y>canvas.height) p.y=0;
+
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`hsl(${Math.random()*360},100%,50%)`;
+      ctx.fill();
+    });
+
+  },20);
+
+  // auto stop
+  setTimeout(()=>{
+    if(confettiInterval){
+      clearInterval(confettiInterval);
+      confettiInterval=null;
+    }
+  },3000);
 }
 
 /* Shuffle */
