@@ -55,28 +55,27 @@ button {
   font-size: 16px;
   font-weight: bold;
   border-radius: 10px;
-  border: none;
+  border: 2px solid #ccc;
   cursor: pointer;
-  background: #2196f3;
-  color: white;
-  transition: all 0.2s ease;
+  background: #fff;
+  color: #333;
+  transition: 0.2s;
 }
 
 button:hover {
-  background: #1976d2;
-  transform: scale(1.05);
+  background: #f0f0f0;
 }
 
 .active-btn {
   background: #4caf50 !important;
+  color: white !important;
+  border-color: #4caf50;
 }
 
 .secondary-btn {
   background: #607d8b;
-}
-
-.secondary-btn:hover {
-  background: #455a64;
+  color: white;
+  border: none;
 }
 
 /* Game */
@@ -114,7 +113,6 @@ button:hover {
 #rightPanel img {
   width: 160px;
   border-radius: 10px;
-  cursor: pointer;
 }
 
 /* Progress */
@@ -122,7 +120,6 @@ button:hover {
   width: 350px;
   height: 10px;
   background: #ddd;
-  margin-bottom: 10px;
 }
 
 #bar {
@@ -131,7 +128,7 @@ button:hover {
   background: #4caf50;
 }
 
-/* Completion overlay */
+/* Overlay */
 #completeScreen {
   display:none;
   position:fixed;
@@ -165,8 +162,25 @@ button:hover {
 
   <!-- LEFT -->
   <div id="leftPanel">
-    <h3>Instructions</h3>
-    <p>Build the body from top to bottom.</p>
+
+    <h3>🧩 Instructions</h3>
+
+    <div id="instructions">
+      <b>How to Play:</b>
+      <ul>
+        <li>Select a difficulty mode.</li>
+        <li>Drag pieces to correct position.</li>
+        <li>Complete the body from top to bottom.</li>
+      </ul>
+
+      <b>Modes:</b>
+      <ul>
+        <li><b>Easy:</b> Follow step-by-step order.</li>
+        <li><b>Medium:</b> Place any correct part.</li>
+      </ul>
+    </div>
+
+    <h4>Controls</h4>
 
     <button onclick="setMode('easy')" id="btn-easy">Easy</button>
     <button onclick="setMode('medium')" id="btn-medium">Medium</button>
@@ -175,11 +189,13 @@ button:hover {
 
     <button class="secondary-btn" onclick="resetGame()">Reset</button>
     <button class="secondary-btn" onclick="toggleHint()">Hint</button>
+
   </div>
 
   <!-- CENTER -->
   <div id="centerPanel">
     <h2>Build the Body</h2>
+
     <div id="progress"><div id="bar"></div></div>
 
     <div id="game">
@@ -197,8 +213,8 @@ button:hover {
   <button onclick="resetGame()">Play Again</button>
 </div>
 
-<audio id="successSound">
-  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b6b5c.mp3" type="audio/mpeg">
+<audio id="successSound" preload="auto">
+  <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9b6b5c.mp3">
 </audio>
 
 <script>
@@ -209,18 +225,19 @@ let dragged=null;
 const total=5;
 
 let confettiInterval=null;
-let confettiParticles=[];
 
 const game=document.getElementById("game");
 const pieces=document.getElementById("rightPanel");
 const bar=document.getElementById("bar");
 
-/* Mode highlight */
+/* Highlight */
 function highlightMode(){
-  document.querySelectorAll("button").forEach(b=>b.classList.remove("active-btn"));
+  document.getElementById("btn-easy").classList.remove("active-btn");
+  document.getElementById("btn-medium").classList.remove("active-btn");
   document.getElementById("btn-"+mode).classList.add("active-btn");
 }
 
+/* Mode */
 function setMode(m){
   mode=m;
   resetGame();
@@ -235,16 +252,13 @@ function updateProgress(){
 /* Reset */
 function resetGame(){
 
-  // stop confetti
   if(confettiInterval){
     clearInterval(confettiInterval);
     confettiInterval=null;
   }
 
-  // clear canvas
   const canvas=document.getElementById("confettiCanvas");
-  const ctx=canvas.getContext("2d");
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
 
   game.innerHTML='<img id="reference" src="images/full.png" style="opacity:0">';
   pieces.innerHTML="";
@@ -325,16 +339,15 @@ function completeGame(){
   },500);
 }
 
-/* Confetti FIXED */
+/* Confetti */
 function startConfetti(){
-
   const canvas=document.getElementById("confettiCanvas");
   const ctx=canvas.getContext("2d");
 
   canvas.width=window.innerWidth;
   canvas.height=window.innerHeight;
 
-  confettiParticles=Array.from({length:120},()=>({
+  let particles=Array.from({length:120},()=>({
     x:Math.random()*canvas.width,
     y:Math.random()*canvas.height,
     r:Math.random()*5+2
@@ -347,7 +360,7 @@ function startConfetti(){
   confettiInterval=setInterval(()=>{
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    confettiParticles.forEach(p=>{
+    particles.forEach(p=>{
       p.y+=3;
       if(p.y>canvas.height) p.y=0;
 
@@ -359,12 +372,9 @@ function startConfetti(){
 
   },20);
 
-  // auto stop
   setTimeout(()=>{
-    if(confettiInterval){
-      clearInterval(confettiInterval);
-      confettiInterval=null;
-    }
+    clearInterval(confettiInterval);
+    confettiInterval=null;
   },3000);
 }
 
