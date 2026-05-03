@@ -26,7 +26,7 @@ body {
   overflow-y: auto;
 }
 
-/* CENTER */
+/* CENTER PANEL */
 #centerPanel {
   width: 50%;
   display: flex;
@@ -35,16 +35,18 @@ body {
   justify-content: center;
 }
 
-/* RIGHT PANEL */
+/* RIGHT PANEL (Centered content) */
 #rightPanel {
   width: 25%;
   padding: 10px;
   border-left: 2px solid #ddd;
+
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  justify-content: center;   /* vertical center */
+  align-items: center;       /* horizontal center */
+
+  gap: 12px;
   overflow-y: auto;
 }
 
@@ -72,16 +74,17 @@ button {
   background: #fff;
 }
 
-/* Reference Image */
+/* Reference (hidden by default) */
 #reference {
   position: absolute;
   width: 100%;
   height: 100%;
-  opacity: 0.2;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 0.3s;
 }
 
-/* Drop Zones */
+/* Drop zones */
 .zone {
   position: absolute;
   width: 100%;
@@ -101,17 +104,17 @@ button {
   border: 2px solid #2196f3;
 }
 
-/* Larger draggable pieces */
+/* Bigger draggable images */
 #rightPanel img {
-  width: 130px;
-  margin: 10px;
+  width: 160px;
+  max-width: 90%;
   cursor: pointer;
   border-radius: 10px;
   transition: transform 0.2s;
 }
 
 #rightPanel img:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 /* Progress */
@@ -128,7 +131,7 @@ button {
   background: #4caf50;
 }
 
-/* Completion Overlay */
+/* Completion overlay */
 #completeScreen {
   display:none;
   position:fixed;
@@ -253,7 +256,7 @@ function setMode(m){
 
 /* Reset */
 function resetGame(){
-  game.innerHTML='<img id="reference" src="images/full.png">';
+  game.innerHTML='<img id="reference" src="images/full.png" style="opacity:0">';
   pieces.innerHTML="";
   document.getElementById("completeScreen").style.display="none";
   currentStep=0;
@@ -261,10 +264,10 @@ function resetGame(){
   init();
 }
 
-/* Hint */
+/* Hint toggle */
 function toggleHint(){
   const ref=document.getElementById("reference");
-  ref.style.opacity=ref.style.opacity==0?0.2:0;
+  ref.style.opacity = ref.style.opacity == "0" ? "0.2" : "0";
 }
 
 /* Init */
